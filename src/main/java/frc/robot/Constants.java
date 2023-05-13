@@ -24,6 +24,10 @@ import edu.wpi.first.math.util.Units;
  * constants are needed, to reduce verbosity.
  */
 public final class Constants {
+  public static final class TelescopeConstants{
+    public static final int kTelescopeMotorCanId = 0;
+    public static final int kTelescopeEncoderZeroOffset = 0; // initial position to zero to
+  }
   public static final class DriveConstants {
     // Driving Parameters - Note that these are not the maximum capable speeds of
     // the robot, rather the allowed maximum speeds
