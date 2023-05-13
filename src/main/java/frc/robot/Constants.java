@@ -28,6 +28,20 @@ public final class Constants {
     public static final int kTelescopeMotorCanId = 0;
     public static final int kTelescopeEncoderZeroOffset = 0; // initial position to zero to
   }
+  public static final class PivotConstants{
+    public static final int kPivotMotorCanId = 11;
+    public static final int kPivotMotorCurrentLimit = 15; 
+    public static final double kPivotGearRatio = 225;
+    public static final double kPivotPositionConversionFactor = (2*Math.PI) * kPivotGearRatio;
+    public static final double kPivotEncoderZeroOffset = 41.4360188;
+    //Controller Constants
+    public static final double kPivotMaxVelocity = 5500;
+    public static final double kPivotMaxAcceleration = 4000;
+    public static final double kPivotTolerance = 6;
+    public static final double kPivotP = 0.00006;
+    public static final double kPivotI = 0.0;
+    public static final double kPivotD = 0.00012;
+  }
   public static final class DriveConstants {
     // Driving Parameters - Note that these are not the maximum capable speeds of
     // the robot, rather the allowed maximum speeds
