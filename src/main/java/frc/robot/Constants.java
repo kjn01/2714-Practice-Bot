@@ -42,6 +42,21 @@ public final class Constants {
     public static final double kPivotI = 0.0;
     public static final double kPivotD = 0.00012;
   }
+  public static final class ClawConstants {
+    public static final int kClawMotorCanId = 14;
+
+    public static final int kClawSolenoidForwardChannel = 7;
+    public static final int kClawSolenoidReverseChannel = 6;
+
+    public static final int kClawMotorCurrentLimit = 12; //amps 
+    public static final int kWristMotorCurrentLimit = 8;
+
+    public static final double kNominalVoltage = 11.5;
+
+    public static final double kIntakeMotorSpeed = 1;
+    public static final double kOuttakeMotorSpeed = -0.1;
+    public static final double kShootMotorSpeed = -0.4;
+  }
   public static final class DriveConstants {
     // Driving Parameters - Note that these are not the maximum capable speeds of
     // the robot, rather the allowed maximum speeds
