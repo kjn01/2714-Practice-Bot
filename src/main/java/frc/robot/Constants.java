@@ -9,6 +9,8 @@ import com.revrobotics.CANSparkMax.IdleMode;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
+import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
+import edu.wpi.first.math.trajectory.TrapezoidProfile.State;
 import edu.wpi.first.math.util.Units;
 
 /**
@@ -114,6 +116,19 @@ public final class Constants {
 
     public static final int kDrivingMotorCurrentLimit = 50; // amps
     public static final int kTurningMotorCurrentLimit = 20; // amps
+  }
+
+  public static final class TelescopeConstants {
+
+    public static final int kCurrentLimit = 20; //tune later
+    public static final int kTelescopingMotorCanId = 1;
+    public static final double kTelescopingMotorGearRatio = 144/625;
+    public static final double kTelescopingMotorConversionFactor = 2 * Math.PI * kTelescopingMotorGearRatio;
+
+    public static final Constraints kTelescopingConstraints = new Constraints(0.1, 0.1); // tune later
+
+
+    public static final double kHighCone = 42; // change later
   }
 
   public static final class OIConstants {
