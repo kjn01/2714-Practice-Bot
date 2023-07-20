@@ -22,11 +22,17 @@ import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandBase;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.WaitUntilCommand;
 import frc.robot.Constants.PivotConstants;
+import frc.robot.subsystems.Arm.PivotStateMachine;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.State;
+import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 
-public class Pivot extends SubsystemBase{
+public class Pivot extends SubsystemBase {
     public CANSparkMax PivotMotor;
     public AbsoluteEncoder PivotEncoder;
     public ProfiledPIDController PivotController;
@@ -65,6 +71,9 @@ public class Pivot extends SubsystemBase{
   // lower if using notifiers.
     private final LinearSystemLoop<N2, N1, N1> m_loop =
         new LinearSystemLoop<>(m_plant, m_controller, m_observer, 12.0, kLoopTime);
+    private final Pivot m_pivot = new Pivot();
+    private final PivotStateMachine m_StateMachine = new PivotStateMachine(m_pivot);
+
 
     public Pivot(){
         PivotMotor = new CANSparkMax(PivotConstants.kPivotMotorCanId, CANSparkMaxLowLevel.MotorType.kBrushless);
@@ -93,17 +102,56 @@ public class Pivot extends SubsystemBase{
     public boolean atGoal() {	
         return PivotController.atGoal();	
     }
+    public boolean nearGoal() {
+        return Math.abs(PivotEncoder.getPosition()- PivotController.getGoal().position) < Units.degreesToRadians(8);
+    }
     public void setTargetAngle(double targetAngle){
         Constraints selectedConstraint = (Math.abs(targetAngle - getAngle()) > Units.degreesToRadians(10) ? FarConstraints : CloseConstraints);
         PivotController.setConstraints(selectedConstraint);
 
         PivotController.setGoal(new State(targetAngle, 0));
     }
-    public void setCalculatedVoltage(){	
-        PivotMotor.setVoltage(PivotController.calculate(getAngle(),PivotController.getGoal()) + PivotFF.calculate(PivotController.getSetpoint().position, 0));	
-    }	
+    // public void setNextReference(double targetReference){	
+    //     m_loop.setNextR(VecBuilder.fill(targetReference));
+        // PivotMotor.setVoltage(PivotController.calculate(getAngle(),PivotController.getGoal()) + PivotFF.calculate(PivotController.getSetpoint().position, 0));	
+    // }	
+    public void setCalculatedVoltage() {
+        
+        m_loop.setNextR(VecBuilder.fill());
+        // pStateMachine.update(...); // Give it what it needs to update (maybe, if it doesn't contain that already)
+
+    }
+    
+    public InstantCommand setPresetCommand(double armPreset) {
+        return new InstantCommand(() -> setPos(armPreset));
+    }
+    //position change methods
+    public Command BackToTransfer(double  backScoreLevelPosition) {
+        CommandBase sequence = new SequentialCommandGroup(
+          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-60))); // backtobackintermediateposition
+          //new WaitUntilCommand(() -> shoulder.atSetpoint() && elbow.atSetpoint()));
+        sequence.addRequirements(m_pivot);
+        return sequence;
+    }
+    public Command BackToStow() {
+        return new SequentialCommandGroup(
+          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-58)));//stowpos
+    }
+    public Command TransferToStow() {
+        return new SequentialCommandGroup(
+          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-58)));//stowpos
+    }
+    public Command StowToTransfer(double transferScoreLevelPosition) {
+        return new SequentialCommandGroup(
+          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(transferScoreLevelPosition)));
+    }
+    
+
+    
+      
     @Override	
     public void periodic() {	
-    setCalculatedVoltage();	
+        setCalculatedVoltage();	
     }
+
 }
