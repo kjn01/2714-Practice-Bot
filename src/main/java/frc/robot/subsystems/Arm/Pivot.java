@@ -21,14 +21,17 @@ import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandBase;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.WaitUntilCommand;
+import frc.robot.Constants.OIConstants;
 import frc.robot.Constants.PivotConstants;
 import frc.robot.subsystems.Arm.PivotStateMachine;
+import frc.robot.subsystems.Arm.PivotStateMachine.PivotState;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.State;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 
@@ -40,8 +43,14 @@ public class Pivot extends SubsystemBase {
     private Constraints FarConstraints = new Constraints(12, 9);
     private Constraints CloseConstraints = new Constraints(36, 36);
     private double kLoopTime = 0.020;
+    private PivotState currentPivotState = PivotState.BACK; //will default to TRANSFER 
+    private PivotState targetPivotState = PivotState.BACK; // default to TRANSFER 
+    XboxController m_driverController = new XboxController(OIConstants.kDriverControllerPort);
 
-
+    private final TrapezoidProfile.Constraints m_constraints =
+    new TrapezoidProfile.Constraints(
+        1.0, // rad/s
+        1.0); // rad/s^2
     private final LinearSystem<N2, N1, N1> m_plant =
       LinearSystemId.createSingleJointedArmSystem(DCMotor.getNEO(2), 1.65, 225.0);
       private final KalmanFilter<N2, N1, N1> m_observer =
@@ -71,8 +80,11 @@ public class Pivot extends SubsystemBase {
   // lower if using notifiers.
     private final LinearSystemLoop<N2, N1, N1> m_loop =
         new LinearSystemLoop<>(m_plant, m_controller, m_observer, 12.0, kLoopTime);
+
     private final Pivot m_pivot = new Pivot();
     private final PivotStateMachine m_StateMachine = new PivotStateMachine(m_pivot);
+    private TrapezoidProfile.State goal = new TrapezoidProfile.State();
+    private TrapezoidProfile.State m_lastProfiledReference = new TrapezoidProfile.State();
 
 
     public Pivot(){
@@ -86,6 +98,7 @@ public class Pivot extends SubsystemBase {
         PivotController = new ProfiledPIDController(0.001, 0,  0, new TrapezoidProfile.Constraints(0.1, 0.1));
         PivotFF = new ArmFeedforward(0,0.35,4.38,0.03);
         PivotEncoder.setZeroOffset(PivotConstants.kPivotEncoderZeroOffset);
+        
     }
     public double convertTicksToAngle(double angle){
         double newAngle = angle;
@@ -115,13 +128,40 @@ public class Pivot extends SubsystemBase {
     //     m_loop.setNextR(VecBuilder.fill(targetReference));
         // PivotMotor.setVoltage(PivotController.calculate(getAngle(),PivotController.getGoal()) + PivotFF.calculate(PivotController.getSetpoint().position, 0));	
     // }	
+    /**
+     * @param
+     * NO WORKING GOAL SETTING RIGHT NOW
+     * below method referenced from https://github.com/ZachOrr/allwpilib/blob/43d40c6e9e95ed0d7bb5f1baa932af37d4449189/wpilibjExamples/src/main/java/edu/wpi/first/wpilibj/examples/statespacearm/Robot.java#L55
+     */
     public void setCalculatedVoltage() {
+        if (currentPivotState == PivotState.BACK){
+            goal = new TrapezoidProfile.State(135, 0.0);
+        }else{ 
+        if (currentPivotState == PivotState.TRANSFER){
+            if (m_driverController.getAButtonPressed()){
+            goal = new TrapezoidProfile.State(-30, 0.0);
+            } else {
+            if (m_driverController.getBButtonPressed()){
+            goal = new TrapezoidProfile.State(-86, 0.0);    //backintake
+            }
+            }
+        }else{
+        if (currentPivotState == PivotState.STOW){
+            goal = new TrapezoidProfile.State(135, 0.0);
+        }
+        }
+        }
+        m_lastProfiledReference = (new TrapezoidProfile(m_constraints, goal, m_lastProfiledReference)).calculate(kLoopTime);
+        m_loop.setNextR(m_lastProfiledReference.position, m_lastProfiledReference.velocity);
         
-        m_loop.setNextR(VecBuilder.fill());
+        m_loop.correct(VecBuilder.fill(PivotEncoder.getPosition()));
+        double nextVoltage = m_loop.getU(0);
+        m_loop.predict(kLoopTime);
         // pStateMachine.update(...); // Give it what it needs to update (maybe, if it doesn't contain that already)
 
     }
     
+
     public InstantCommand setPresetCommand(double armPreset) {
         return new InstantCommand(() -> setPos(armPreset));
     }
@@ -151,7 +191,7 @@ public class Pivot extends SubsystemBase {
     }
     public Command StowToBack() {
         return new SequentialCommandGroup(
-          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-30)));
+          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-86)));//backintake
     }
       
     @Override	
