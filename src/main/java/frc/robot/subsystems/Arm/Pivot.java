@@ -145,9 +145,14 @@ public class Pivot extends SubsystemBase {
         return new SequentialCommandGroup(
           new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(transferScoreLevelPosition)));
     }
-    
-
-    
+    public Command TransferToBack() {
+        return new SequentialCommandGroup(
+          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(135)));//transfer
+    }
+    public Command StowToBack() {
+        return new SequentialCommandGroup(
+          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-30)));
+    }
       
     @Override	
     public void periodic() {	

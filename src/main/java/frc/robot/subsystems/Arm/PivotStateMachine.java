@@ -68,12 +68,12 @@ public class PivotStateMachine {
             case STOW: return m_pivot.BackToStow();
           }
           case TRANSFER: switch (targetPivotState) {
-            case BACK: return m_pivot.TransferToBack(getBackScoreLevelPosition(pivotScoreLevel, cargoType));
+            case BACK: return m_pivot.TransferToBack();
             case TRANSFER: return new InstantCommand();
             case STOW: return m_pivot.TransferToStow();
           }
           case STOW: switch (targetPivotState) {
-            case BACK: return m_pivot.StowToBack(getBackScoreLevelPosition(pivotScoreLevel, cargoType));
+            case BACK: return m_pivot.StowToBack();
             case TRANSFER: return m_pivot.StowToTransfer(135);//ktransferpos
             case STOW: return new InstantCommand();
           }
