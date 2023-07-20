@@ -58,9 +58,9 @@ public class Claw {
     public Command getWristCommand(){
         switch (wristMode){
             case CUBE:
-                return new InstantCommand(() -> WristEncoder.setPosition(Units.degreesToRadians(0)));
+                return new InstantCommand(() -> WristEncoder.setPosition(Units.degreesToRadians(250)));
             case CONE:
-                return new InstantCommand(() -> WristEncoder.setPosition(Units.degreesToRadians(180)));
+                return new InstantCommand(() -> WristEncoder.setPosition(Units.degreesToRadians(205)));
                 default:
                 return new InstantCommand();
         }

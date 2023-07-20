@@ -5,8 +5,19 @@ import com.revrobotics.CANSparkMaxLowLevel;
 import com.revrobotics.SparkMaxAbsoluteEncoder.Type;
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMax.SoftLimitDirection;
+
+import edu.wpi.first.math.Nat;
+import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.controller.ArmFeedforward;
+import edu.wpi.first.math.controller.LinearQuadraticRegulator;
 import edu.wpi.first.math.controller.ProfiledPIDController;
+import edu.wpi.first.math.estimator.KalmanFilter;
+import edu.wpi.first.math.numbers.N1;
+import edu.wpi.first.math.numbers.N2;
+import edu.wpi.first.math.system.LinearSystem;
+import edu.wpi.first.math.system.LinearSystemLoop;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
 import edu.wpi.first.math.util.Units;
@@ -22,6 +33,39 @@ public class Pivot extends SubsystemBase{
     private ArmFeedforward PivotFF;
     private Constraints FarConstraints = new Constraints(12, 9);
     private Constraints CloseConstraints = new Constraints(36, 36);
+    private double kLoopTime = 0.020;
+
+
+    private final LinearSystem<N2, N1, N1> m_plant =
+      LinearSystemId.createSingleJointedArmSystem(DCMotor.getNEO(2), 1.65, 225.0);
+      private final KalmanFilter<N2, N1, N1> m_observer =
+      new KalmanFilter<>(
+          Nat.N2(),
+          Nat.N1(),
+          m_plant,
+          VecBuilder.fill(0.015, 0.17), // How accurate we
+          // think our model is, in radians and radians/sec
+          VecBuilder.fill(0.01), // How accurate we think our encoder position
+          // data is. In this case we very highly trust our encoder position reading.
+          0.020);
+
+      // A LQR uses feedback to create voltage commands.
+    private final LinearQuadraticRegulator<N2, N1, N1> m_controller =
+        new LinearQuadraticRegulator<>(
+          m_plant,
+          VecBuilder.fill(Units.degreesToRadians(1.0), Units.degreesToRadians(10.0)), // Q elms.
+          // Position and velocity error tolerances, in radians and radians per second. Decrease this
+          // to more heavily penalize state excursion, or make the controller behave more
+          // aggressively. In this example we weight position much more highly than velocity, but this
+          // can be tuned to balance the two.
+          VecBuilder.fill(12.0), // R elms. Control effort (voltage) tolerance. Decrease this to more
+          // heavily penalize control effort, or make the controller less aggressive. 12 is a good
+          // starting point because that is the (approximate) maximum voltage of a battery.
+          0.020); // Nominal time between loops. 0.020 for TimedRobot, but can be
+  // lower if using notifiers.
+    private final LinearSystemLoop<N2, N1, N1> m_loop =
+        new LinearSystemLoop<>(m_plant, m_controller, m_observer, 12.0, kLoopTime);
+
     public Pivot(){
         PivotMotor = new CANSparkMax(PivotConstants.kPivotMotorCanId, CANSparkMaxLowLevel.MotorType.kBrushless);
         PivotMotor.setInverted(false);
