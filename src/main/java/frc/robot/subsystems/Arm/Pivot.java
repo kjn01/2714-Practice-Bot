@@ -1,4 +1,5 @@
 package frc.robot.subsystems.Arm;
+
 import com.revrobotics.AbsoluteEncoder;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMaxLowLevel;
@@ -43,160 +44,181 @@ public class Pivot extends SubsystemBase {
     private Constraints FarConstraints = new Constraints(12, 9);
     private Constraints CloseConstraints = new Constraints(36, 36);
     private double kLoopTime = 0.020;
-    private PivotState currentPivotState = PivotState.BACK; //will default to TRANSFER 
-    private PivotState targetPivotState = PivotState.BACK; // default to TRANSFER 
+    private PivotState currentPivotState = PivotState.BACK; // will default to TRANSFER
+    private PivotState targetPivotState = PivotState.BACK; // default to TRANSFER
     XboxController m_driverController = new XboxController(OIConstants.kDriverControllerPort);
 
-    private final TrapezoidProfile.Constraints m_constraints =
-    new TrapezoidProfile.Constraints(
-        1.0, // rad/s
-        1.0); // rad/s^2
-    private final LinearSystem<N2, N1, N1> m_plant =
-      LinearSystemId.createSingleJointedArmSystem(DCMotor.getNEO(2), 1.65, 225.0);
-      private final KalmanFilter<N2, N1, N1> m_observer =
-      new KalmanFilter<>(
-          Nat.N2(),
-          Nat.N1(),
-          m_plant,
-          VecBuilder.fill(0.015, 0.17), // How accurate we
-          // think our model is, in radians and radians/sec
-          VecBuilder.fill(0.01), // How accurate we think our encoder position
-          // data is. In this case we very highly trust our encoder position reading.
-          0.020);
+    private final TrapezoidProfile.Constraints m_constraints = new TrapezoidProfile.Constraints(
+            1.0, // rad/s
+            1.0); // rad/s^2
+    private final LinearSystem<N2, N1, N1> m_plant = LinearSystemId.createSingleJointedArmSystem(DCMotor.getNEO(2),
+            1.65, 225.0);
+    private final KalmanFilter<N2, N1, N1> m_observer = new KalmanFilter<>(
+            Nat.N2(),
+            Nat.N1(),
+            m_plant,
+            VecBuilder.fill(0.015, 0.17), // How accurate we
+            // think our model is, in radians and radians/sec
+            VecBuilder.fill(0.01), // How accurate we think our encoder position
+            // data is. In this case we very highly trust our encoder position reading.
+            0.020);
 
-      // A LQR uses feedback to create voltage commands.
-    private final LinearQuadraticRegulator<N2, N1, N1> m_controller =
-        new LinearQuadraticRegulator<>(
-          m_plant,
-          VecBuilder.fill(Units.degreesToRadians(1.0), Units.degreesToRadians(10.0)), // Q elms.
-          // Position and velocity error tolerances, in radians and radians per second. Decrease this
-          // to more heavily penalize state excursion, or make the controller behave more
-          // aggressively. In this example we weight position much more highly than velocity, but this
-          // can be tuned to balance the two.
-          VecBuilder.fill(12.0), // R elms. Control effort (voltage) tolerance. Decrease this to more
-          // heavily penalize control effort, or make the controller less aggressive. 12 is a good
-          // starting point because that is the (approximate) maximum voltage of a battery.
-          0.020); // Nominal time between loops. 0.020 for TimedRobot, but can be
-  // lower if using notifiers.
-    private final LinearSystemLoop<N2, N1, N1> m_loop =
-        new LinearSystemLoop<>(m_plant, m_controller, m_observer, 12.0, kLoopTime);
+    // A LQR uses feedback to create voltage commands.
+    private final LinearQuadraticRegulator<N2, N1, N1> m_controller = new LinearQuadraticRegulator<>(
+            m_plant,
+            VecBuilder.fill(Units.degreesToRadians(1.0), Units.degreesToRadians(10.0)), // Q elms.
+            // Position and velocity error tolerances, in radians and radians per second.
+            // Decrease this
+            // to more heavily penalize state excursion, or make the controller behave more
+            // aggressively. In this example we weight position much more highly than
+            // velocity, but this
+            // can be tuned to balance the two.
+            VecBuilder.fill(12.0), // R elms. Control effort (voltage) tolerance. Decrease this to more
+            // heavily penalize control effort, or make the controller less aggressive. 12
+            // is a good
+            // starting point because that is the (approximate) maximum voltage of a
+            // battery.
+            0.020); // Nominal time between loops. 0.020 for TimedRobot, but can be
+    // lower if using notifiers.
+    private final LinearSystemLoop<N2, N1, N1> m_loop = new LinearSystemLoop<>(m_plant, m_controller, m_observer, 12.0,
+            kLoopTime);
 
     private final Pivot m_pivot = new Pivot();
     private final PivotStateMachine m_StateMachine = new PivotStateMachine(m_pivot);
     private TrapezoidProfile.State goal = new TrapezoidProfile.State();
     private TrapezoidProfile.State m_lastProfiledReference = new TrapezoidProfile.State();
 
-
-    public Pivot(){
+    public Pivot() {
         PivotMotor = new CANSparkMax(PivotConstants.kPivotMotorCanId, CANSparkMaxLowLevel.MotorType.kBrushless);
         PivotMotor.setInverted(false);
         PivotMotor.setSmartCurrentLimit(PivotConstants.kPivotMotorCurrentLimit);
         PivotEncoder.setPositionConversionFactor(PivotConstants.kPivotPositionConversionFactor);
-        
+
         PivotEncoder = PivotMotor.getAbsoluteEncoder(Type.kDutyCycle);
         PivotMotor.setIdleMode(IdleMode.kBrake);
-        PivotController = new ProfiledPIDController(0.001, 0,  0, new TrapezoidProfile.Constraints(0.1, 0.1));
-        PivotFF = new ArmFeedforward(0,0.35,4.38,0.03);
+        PivotController = new ProfiledPIDController(0.001, 0, 0, new TrapezoidProfile.Constraints(0.1, 0.1));
+        PivotFF = new ArmFeedforward(0, 0.35, 4.38, 0.03);
         PivotEncoder.setZeroOffset(PivotConstants.kPivotEncoderZeroOffset);
-        
+
     }
-    public double convertTicksToAngle(double angle){
+
+    public double convertTicksToAngle(double angle) {
         double newAngle = angle;
         newAngle -= PivotConstants.kPivotEncoderZeroOffset;
         return newAngle / PivotConstants.kPivotGearRatio;
     }
-    public double getAngle(){
+
+    public double getAngle() {
         return convertTicksToAngle(PivotEncoder.getPosition());
     }
-    public void setPos(double goal){	
-        if(PivotController.getP() == 0) {PivotController.setP(5);}	
-        PivotController.setGoal(goal);	
+
+    public void setPos(double goal) {
+        if (PivotController.getP() == 0) {
+            PivotController.setP(5);
+        }
+        PivotController.setGoal(goal);
     }
-    public boolean atGoal() {	
-        return PivotController.atGoal();	
+
+    public boolean atGoal() {
+        return PivotController.atGoal();
     }
+
     public boolean nearGoal() {
-        return Math.abs(PivotEncoder.getPosition()- PivotController.getGoal().position) < Units.degreesToRadians(8);
+        return Math.abs(PivotEncoder.getPosition() - PivotController.getGoal().position) < Units.degreesToRadians(8);
     }
-    public void setTargetAngle(double targetAngle){
-        Constraints selectedConstraint = (Math.abs(targetAngle - getAngle()) > Units.degreesToRadians(10) ? FarConstraints : CloseConstraints);
+
+    public void setTargetAngle(double targetAngle) {
+        Constraints selectedConstraint = (Math.abs(targetAngle - getAngle()) > Units.degreesToRadians(10)
+                ? FarConstraints
+                : CloseConstraints);
         PivotController.setConstraints(selectedConstraint);
 
         PivotController.setGoal(new State(targetAngle, 0));
     }
-    // public void setNextReference(double targetReference){	
-    //     m_loop.setNextR(VecBuilder.fill(targetReference));
-        // PivotMotor.setVoltage(PivotController.calculate(getAngle(),PivotController.getGoal()) + PivotFF.calculate(PivotController.getSetpoint().position, 0));	
-    // }	
+
+    // public void setNextReference(double targetReference){
+    // m_loop.setNextR(VecBuilder.fill(targetReference));
+    // PivotMotor.setVoltage(PivotController.calculate(getAngle(),PivotController.getGoal())
+    // + PivotFF.calculate(PivotController.getSetpoint().position, 0));
+    // }
     /**
      * @param
-     * NO WORKING GOAL SETTING RIGHT NOW
-     * below method referenced from https://github.com/ZachOrr/allwpilib/blob/43d40c6e9e95ed0d7bb5f1baa932af37d4449189/wpilibjExamples/src/main/java/edu/wpi/first/wpilibj/examples/statespacearm/Robot.java#L55
+     * NO        WORKING GOAL SETTING RIGHT NOW
+     *           below method referenced from
+     *           https://github.com/ZachOrr/allwpilib/blob/43d40c6e9e95ed0d7bb5f1baa932af37d4449189/wpilibjExamples/src/main/java/edu/wpi/first/wpilibj/examples/statespacearm/Robot.java#L55
      */
     public void setCalculatedVoltage() {
-        if (currentPivotState == PivotState.BACK){
+        if (currentPivotState == PivotState.BACK) {
             goal = new TrapezoidProfile.State(135, 0.0);
-        }else{ 
-        if (currentPivotState == PivotState.TRANSFER){
-            if (m_driverController.getAButtonPressed()){
-            goal = new TrapezoidProfile.State(-30, 0.0);
+        } else {
+            if (currentPivotState == PivotState.TRANSFER) {
+                if (m_driverController.getAButtonPressed()) {
+                    goal = new TrapezoidProfile.State(-30, 0.0);
+                } else {
+                    if (m_driverController.getBButtonPressed()) {
+                        goal = new TrapezoidProfile.State(-86, 0.0); // backintake
+                    }
+                }
             } else {
-            if (m_driverController.getBButtonPressed()){
-            goal = new TrapezoidProfile.State(-86, 0.0);    //backintake
+                if (currentPivotState == PivotState.STOW) {
+                    goal = new TrapezoidProfile.State(135, 0.0);
+                }
             }
-            }
-        }else{
-        if (currentPivotState == PivotState.STOW){
-            goal = new TrapezoidProfile.State(135, 0.0);
         }
-        }
-        }
-        m_lastProfiledReference = (new TrapezoidProfile(m_constraints, goal, m_lastProfiledReference)).calculate(kLoopTime);
+        m_lastProfiledReference = (new TrapezoidProfile(m_constraints, goal, m_lastProfiledReference))
+                .calculate(kLoopTime);
         m_loop.setNextR(m_lastProfiledReference.position, m_lastProfiledReference.velocity);
-        
+
         m_loop.correct(VecBuilder.fill(PivotEncoder.getPosition()));
         double nextVoltage = m_loop.getU(0);
         m_loop.predict(kLoopTime);
-        // pStateMachine.update(...); // Give it what it needs to update (maybe, if it doesn't contain that already)
+        // pStateMachine.update(...); // Give it what it needs to update (maybe, if it
+        // doesn't contain that already)
 
     }
-    
 
     public InstantCommand setPresetCommand(double armPreset) {
         return new InstantCommand(() -> setPos(armPreset));
     }
-    //position change methods
-    public Command BackToTransfer(double  backScoreLevelPosition) {
+
+    // position change methods
+    public Command BackToTransfer(double backScoreLevelPosition) {
         CommandBase sequence = new SequentialCommandGroup(
-          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-60))); // backtobackintermediateposition
-          //new WaitUntilCommand(() -> shoulder.atSetpoint() && elbow.atSetpoint()));
+                new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-60))); // backtobackintermediateposition
+        // new WaitUntilCommand(() -> shoulder.atSetpoint() && elbow.atSetpoint()));
         sequence.addRequirements(m_pivot);
         return sequence;
     }
+
     public Command BackToStow() {
         return new SequentialCommandGroup(
-          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-58)));//stowpos
+                new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-58)));// stowpos
     }
+
     public Command TransferToStow() {
         return new SequentialCommandGroup(
-          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-58)));//stowpos
+                new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-58)));// stowpos
     }
+
     public Command StowToTransfer(double transferScoreLevelPosition) {
         return new SequentialCommandGroup(
-          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(transferScoreLevelPosition)));
+                new WaitUntilCommand(() -> m_pivot.nearGoal())
+                        .deadlineWith(setPresetCommand(transferScoreLevelPosition)));
     }
+
     public Command TransferToBack() {
         return new SequentialCommandGroup(
-          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(135)));//transfer
+                new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(135)));// transfer
     }
+
     public Command StowToBack() {
         return new SequentialCommandGroup(
-          new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-86)));//backintake
+                new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-86)));// backintake
     }
-      
-    @Override	
-    public void periodic() {	
-        setCalculatedVoltage();	
+
+    @Override
+    public void periodic() {
+        setCalculatedVoltage();
     }
 
 }
