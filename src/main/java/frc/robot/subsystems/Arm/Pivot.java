@@ -39,13 +39,8 @@ import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 public class Pivot extends SubsystemBase {
     public CANSparkMax PivotMotor;
     public AbsoluteEncoder PivotEncoder;
-    public ProfiledPIDController PivotController;
-    private ArmFeedforward PivotFF;
-    private Constraints FarConstraints = new Constraints(12, 9);
-    private Constraints CloseConstraints = new Constraints(36, 36);
     private double kLoopTime = 0.020;
     private PivotState currentPivotState = PivotState.BACK; // will default to TRANSFER
-    private PivotState targetPivotState = PivotState.BACK; // default to TRANSFER
     XboxController m_driverController = new XboxController(OIConstants.kDriverControllerPort);
 
     private final TrapezoidProfile.Constraints m_constraints = new TrapezoidProfile.Constraints(
@@ -96,8 +91,6 @@ public class Pivot extends SubsystemBase {
 
         PivotEncoder = PivotMotor.getAbsoluteEncoder(Type.kDutyCycle);
         PivotMotor.setIdleMode(IdleMode.kBrake);
-        PivotController = new ProfiledPIDController(0.001, 0, 0, new TrapezoidProfile.Constraints(0.1, 0.1));
-        PivotFF = new ArmFeedforward(0, 0.35, 4.38, 0.03);
         PivotEncoder.setZeroOffset(PivotConstants.kPivotEncoderZeroOffset);
 
     }
@@ -113,27 +106,11 @@ public class Pivot extends SubsystemBase {
     }
 
     public void setPos(double goal) {
-        if (PivotController.getP() == 0) {
-            PivotController.setP(5);
-        }
-        PivotController.setGoal(goal);
-    }
-
-    public boolean atGoal() {
-        return PivotController.atGoal();
+        m_loop.setNextR(goal);
     }
 
     public boolean nearGoal() {
-        return Math.abs(PivotEncoder.getPosition() - PivotController.getGoal().position) < Units.degreesToRadians(8);
-    }
-
-    public void setTargetAngle(double targetAngle) {
-        Constraints selectedConstraint = (Math.abs(targetAngle - getAngle()) > Units.degreesToRadians(10)
-                ? FarConstraints
-                : CloseConstraints);
-        PivotController.setConstraints(selectedConstraint);
-
-        PivotController.setGoal(new State(targetAngle, 0));
+        return Math.abs(PivotEncoder.getPosition() - goal.position) < Units.degreesToRadians(8);
     }
 
     // public void setNextReference(double targetReference){
@@ -149,11 +126,11 @@ public class Pivot extends SubsystemBase {
      */
     public void setCalculatedVoltage() {
         if (currentPivotState == PivotState.BACK) {
-            goal = new TrapezoidProfile.State(135, 0.0);
+            goal = new TrapezoidProfile.State(135, 0.0);// transfer
         } else {
             if (currentPivotState == PivotState.TRANSFER) {
                 if (m_driverController.getAButtonPressed()) {
-                    goal = new TrapezoidProfile.State(-30, 0.0);
+                    goal = new TrapezoidProfile.State(-30, 0.0); // b
                 } else {
                     if (m_driverController.getBButtonPressed()) {
                         goal = new TrapezoidProfile.State(-86, 0.0); // backintake
@@ -165,6 +142,7 @@ public class Pivot extends SubsystemBase {
                 }
             }
         }
+
         m_lastProfiledReference = (new TrapezoidProfile(m_constraints, goal, m_lastProfiledReference))
                 .calculate(kLoopTime);
         m_loop.setNextR(m_lastProfiledReference.position, m_lastProfiledReference.velocity);
@@ -183,6 +161,7 @@ public class Pivot extends SubsystemBase {
 
     // position change methods
     public Command BackToTransfer(double backScoreLevelPosition) {
+        currentPivotState = PivotState.TRANSFER;
         CommandBase sequence = new SequentialCommandGroup(
                 new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-60))); // backtobackintermediateposition
         // new WaitUntilCommand(() -> shoulder.atSetpoint() && elbow.atSetpoint()));
@@ -191,27 +170,33 @@ public class Pivot extends SubsystemBase {
     }
 
     public Command BackToStow() {
+        currentPivotState = PivotState.STOW;
         return new SequentialCommandGroup(
                 new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-58)));// stowpos
+        // deadlinewith interrupts the second command when the first command finishes
     }
 
     public Command TransferToStow() {
+        currentPivotState = PivotState.STOW;
         return new SequentialCommandGroup(
                 new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-58)));// stowpos
     }
 
     public Command StowToTransfer(double transferScoreLevelPosition) {
+        currentPivotState = PivotState.TRANSFER;
         return new SequentialCommandGroup(
                 new WaitUntilCommand(() -> m_pivot.nearGoal())
                         .deadlineWith(setPresetCommand(transferScoreLevelPosition)));
     }
 
     public Command TransferToBack() {
+        currentPivotState = PivotState.BACK;
         return new SequentialCommandGroup(
                 new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(135)));// transfer
     }
 
     public Command StowToBack() {
+        currentPivotState = PivotState.BACK;
         return new SequentialCommandGroup(
                 new WaitUntilCommand(() -> m_pivot.nearGoal()).deadlineWith(setPresetCommand(-86)));// backintake
     }
