@@ -5,13 +5,9 @@ import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMaxLowLevel;
 import com.revrobotics.SparkMaxAbsoluteEncoder.Type;
 import com.revrobotics.CANSparkMax.IdleMode;
-import com.revrobotics.CANSparkMax.SoftLimitDirection;
-
 import edu.wpi.first.math.Nat;
 import edu.wpi.first.math.VecBuilder;
-import edu.wpi.first.math.controller.ArmFeedforward;
 import edu.wpi.first.math.controller.LinearQuadraticRegulator;
-import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.estimator.KalmanFilter;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N2;
@@ -20,10 +16,8 @@ import edu.wpi.first.math.system.LinearSystemLoop;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
-import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.XboxController;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandBase;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
@@ -31,9 +25,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.WaitUntilCommand;
 import frc.robot.Constants.OIConstants;
 import frc.robot.Constants.PivotConstants;
-import frc.robot.subsystems.Arm.PivotStateMachine;
 import frc.robot.subsystems.Arm.PivotStateMachine.PivotState;
-import edu.wpi.first.math.trajectory.TrapezoidProfile.State;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 
 public class Pivot extends SubsystemBase {
@@ -46,7 +38,7 @@ public class Pivot extends SubsystemBase {
     private final TrapezoidProfile.Constraints m_constraints = new TrapezoidProfile.Constraints(
             1.0, // rad/s
             1.0); // rad/s^2
-    private final LinearSystem<N2, N1, N1> m_plant = LinearSystemId.createSingleJointedArmSystem(DCMotor.getNEO(2),
+    private final LinearSystem<N2, N1, N1> m_plant = LinearSystemId.createSingleJointedArmSystem(DCMotor.getNEO(1),
             1.65, 225.0);
     private final KalmanFilter<N2, N1, N1> m_observer = new KalmanFilter<>(
             Nat.N2(),
@@ -129,7 +121,7 @@ public class Pivot extends SubsystemBase {
             goal = new TrapezoidProfile.State(135, 0.0);// transfer
         } else {
             if (currentPivotState == PivotState.TRANSFER) {
-                if (m_driverController.getAButtonPressed()) {
+                if (m_driverController.getXButtonPressed()) {
                     goal = new TrapezoidProfile.State(-30, 0.0); // b
                 } else {
                     if (m_driverController.getBButtonPressed()) {
@@ -150,6 +142,7 @@ public class Pivot extends SubsystemBase {
         m_loop.correct(VecBuilder.fill(PivotEncoder.getPosition()));
         double nextVoltage = m_loop.getU(0);
         m_loop.predict(kLoopTime);
+        PivotMotor.setVoltage(nextVoltage);
         // pStateMachine.update(...); // Give it what it needs to update (maybe, if it
         // doesn't contain that already)
 

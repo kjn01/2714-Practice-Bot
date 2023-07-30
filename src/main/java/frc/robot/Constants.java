@@ -30,10 +30,10 @@ public final class Constants {
   }
   public static final class PivotConstants{
     public static final int kPivotMotorCanId = 11;
-    public static final int kPivotMotorCurrentLimit = 15; 
+    public static final int kPivotMotorCurrentLimit = 30; 
     public static final double kPivotGearRatio = 225;
     public static final double kPivotPositionConversionFactor = (2*Math.PI) * kPivotGearRatio;
-    public static final double kPivotEncoderZeroOffset = 41.4360188;
+    public static final double kPivotEncoderZeroOffset = 1422;
     //Controller Constants
     public static final double kPivotMaxVelocity = 5500;
     public static final double kPivotMaxAcceleration = 4000;
