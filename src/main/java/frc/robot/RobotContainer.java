@@ -62,6 +62,10 @@ public class RobotContainer {
             m_robotDrive));
   }
 
+  public void setTeleOpDefaultStates() {
+    new InstantCommand(() -> m_Shooter.setPivotAngle(-95)).schedule();
+  }
+
   /**
    * Use this method to define your button->command mappings. Buttons can be
    * created by
